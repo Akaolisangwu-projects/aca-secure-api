@@ -1,0 +1,34 @@
+name: tf-plan
+on:
+  pull_request:
+    paths: [ 'infra/**', '.github/workflows/plan.yml' ]
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.6.6 }
+      - name: terraform fmt
+        working-directory: infra
+        run: terraform fmt -check
+      - name: terraform init
+        working-directory: infra
+        run: terraform init -input=false
+      - name: terraform validate
+        working-directory: infra
+        run: terraform validate
+      - name: terraform plan
+        working-directory: infra
+        run: terraform plan -out=tf.plan -input=false
+      - name: Upload tf.plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: infra/tf.plan
+      - name: Install Snyk
+        run: npm i -g snyk
+      - name: Snyk auth
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+      - name: Snyk IaC (source)
+        run: snyk iac test infra --severity-threshold=medium --json-file-output=snyk-iac-plan-src.json
